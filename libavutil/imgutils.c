@@ -32,6 +32,8 @@
 #include "pixdesc.h"
 #include "rational.h"
 
+#define CX_IMAGE_RESOLUTION_FIX
+
 void av_image_fill_max_pixsteps(int max_pixsteps[4], int max_pixstep_comps[4],
                                 const AVPixFmtDescriptor *pixdesc)
 {
@@ -64,7 +66,11 @@ int image_get_linesize(int width, int plane,
         return AVERROR(EINVAL);
     s = (max_step_comp == 1 || max_step_comp == 2) ? desc->log2_chroma_w : 0;
     shifted_w = ((width + (1 << s) - 1)) >> s;
+#ifdef CX_IMAGE_RESOLUTION_FIX
+    if (shifted_w && max_step > INT64_MAX / shifted_w)
+#else
     if (shifted_w && max_step > INT_MAX / shifted_w)
+#endif
         return AVERROR(EINVAL);
     linesize = max_step * shifted_w;
 
@@ -160,7 +166,11 @@ int av_image_fill_pointers(uint8_t *data[4], enum AVPixelFormat pix_fmt, int hei
 
     ret = 0;
     for (i = 0; i < 4; i++) {
+#ifdef CX_IMAGE_RESOLUTION_FIX
+        if (sizes[i] > INT64_MAX - ret)
+#else
         if (sizes[i] > INT_MAX - ret)
+#endif
             return AVERROR(EINVAL);
         ret += sizes[i];
     }
@@ -298,7 +308,11 @@ int av_image_check_size2(unsigned int w, unsigned int h, int64_t max_pixels, enu
         stride = 8LL*w;
     stride += 128*8;
 
-    if ((int)w<=0 || (int)h<=0 || stride >= INT_MAX || stride*(uint64_t)(h+128) >= INT_MAX) {
+#ifdef CX_IMAGE_RESOLUTION_FIX
+    if ((int)w<=0 || (int)h<=0 || stride >= INT64_MAX || stride*(uint64_t)(h+128) >= INT64_MAX) {
+#else
+    if ((int)w<=0 || (int)h<=0 || stride >= INT64_MAX || stride*(uint64_t)(h+128) >= INT_MAX) {
+#endif
         av_log(&imgutils, AV_LOG_ERROR, "Picture size %ux%u is invalid\n", w, h);
         return AVERROR(EINVAL);
     }
@@ -491,7 +505,11 @@ int av_image_get_buffer_size(enum AVPixelFormat pix_fmt,
 
     ret = 0;
     for (i = 0; i < 4; i++) {
+#ifdef CX_IMAGE_RESOLUTION_FIX
+        if (sizes[i] > INT64_MAX - ret)
+#else
         if (sizes[i] > INT_MAX - ret)
+#endif
             return AVERROR(EINVAL);
         ret += sizes[i];
     }
